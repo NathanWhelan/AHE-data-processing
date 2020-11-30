@@ -8,11 +8,10 @@
 
 
 #####VARIABLES THAT YOU NEED TO SPECIFY###########################################################################################################################
-REFERENCE="Lithasia"  ##Change name to whatever your reference taxon is. The name must be a part of the sequence header for you reference taxon in you reference fasta files.
-REFERENCE2="Biomphalaria" ###In many cases this should be the same as reference, unless your reference taxon is different than the genome you used for probe design
+REFERENCE="ELithasia_geniculata"  ##Change name to whatever your reference taxon is. The name must be a part of the sequence header for you reference taxon in you reference fasta files. It should be the whole taxon name (e.g., ELithasia_geniculata)
 GENOMEFASTADB="/run/media/labgroup/storage/BiomphalariaGenome/biomphalaria_genome.fa"  ##Path to your genome blast database
 CORES=31  ##Specify the maximum number of threads/cores to use
-PATH_TO_REF_FOLDER="/run/media/labgroup/storage/FWS_123701_REF"
+PATH_TO_REF_FOLDER="/run/media/labgroup/storage/FWS_123701_REF"  ##This should have you reference alignments that were used to design your probes. Probably 3-6 species.
 ##################################################################################################################################################################
 
 ###This script starts after IBA.py has been run. Please see script processAHE.sh
@@ -41,6 +40,12 @@ split.py sl_ALL_FULL_LOCI.fa _  ## "_" is delimiter...it could be different for 
 for X in L*.fa; do /home/labgroup/programs/mafft-linux64/mafft.bat --auto --maxiterate 1000 --thread $CORES --adjustdirectionaccurately --addlong $X $PATH_TO_REF_FOLDER/$X\s> aligned_$X; done
 #TO DO: automate changing path to reference folder.
 
+####CHECKPOINT 1
+echo "CHECKPOINT 1"
+mkdir checkpoint1
+cp aligned_* checkpoint1/
+
+
 echo "MAFFT is finished. A few steps are proceeding before blast steps"
 ##Make all alignments single lined
 for X in aligned_L* ; do singleline.pl $X > 1l_$X; done
@@ -65,7 +70,7 @@ cat *.trimmed > 3by3.in
 sed -i 's/-//g' 3by3.in  ##First remove gaps as blast does not like some (or all) of the alignments
 
 echo "3by3 blast is running"
-blastn -task blastn -query 3by3.in -db $GENOMEFASTADB -out 3by3.out -outfmt 6 -max_target_seqs 3 -max_hsps 3 -num_threads $CORES
+tblastx -query 3by3.in -db $GENOMEFASTADB -out 3by3.out -outfmt 6 -max_target_seqs 3 -max_hsps 3 -num_threads $CORES ##Can also do tblastx if sequences are divergent from reference.
 echo "3by3 blast is finished"
 
 s_hit_checker.py 3by3.out 0.90
@@ -74,11 +79,16 @@ removelist.py 3by3.in 3by3_del_list0.90.txt 1by1.in
 
 #Filter for sequences that passed single hit criteria and found best hit with blast and filtered for orthologs homology
 echo "1by1 blast and filtering is starting"
-blastn -task blastn -query 1by1.in -db $GENOMEFASTADB -out 1by1.out -outfmt 6 -max_target_seqs 1 -max_hsps 1 -num_threads $CORES
-ortholog_filter.py 1by1.out $REFERENCE2
+tblastx -query 1by1.in -db $GENOMEFASTADB -out 1by1.out -outfmt 6 -max_target_seqs 1 -max_hsps 1 -num_threads $CORES  ##Can also do tblastx if sequences are divergent from reference.
+ortholog_filter.py 1by1.out $REFERENCE
 getlist.py 1by1.in 1by1_keep_list ORTHO_PASS.fa
-getlist.py 1by1.in 1by1_keep_list ORTHO_PASS.fa
+
 echo "1by1 blast and filtering for non-orthologs is finished"
+
+###CHECKPOINT 2
+echo "CHECKPOINT 2"
+mkdir checkpoint2/
+cp ORTHO_PASS.fa checkpoint2/
 
 
 ##Make single line fasta (not interleaved) and split sequences that passed orthology into single locus files.
@@ -90,11 +100,17 @@ split.py sl_ORTHO_PASS.fa \|
 for X in L*.fa; do /home/labgroup/programs/mafft-linux64/mafft.bat --thread $CORES $X > $X\s; done
 
 ##collapse heterogeneity into a consensus for each taxon and locus
-FASconCAT-G_v1.04.pl -c -c -o -s
+FASconCAT-G_v1.04.pl -c -c -c -o -s
 cat FcC_L* > NOISO_PROBE.fa  ##No isoforms, just consensus with IUPAC ambuguity codes for DNA
 sed -i "s/|/_/g" NOISO_PROBE.fa
 sed -i "s/_consensus//" NOISO_PROBE.fa
 remove_duplicates.py NOISO_PROBE.fa
+
+
+###CHECKPOINT 3
+echo "Checkpoint 3"
+mkdir checkpoint3
+cp NOISO_PROBE.fa checkpoint3/
 
 ###use usearch to get sequences using a feature that allows a partial match since we have removed part of the original sequence name
 usearch -fastx_getseqs ../ALL_FULL_LOCI_REF.fa -labels NOISO_PROBE_keep.list -label_substr_match -fastaout FINAL_FULL_CLEAN_REF.fa
@@ -110,19 +126,25 @@ split.py 1l_FINAL_FULL_CLEAN_REF.fa \|  ##Split into individual loci
 
 
 
+
+###CHECKPOINT 4
+echo "CHECKPOINT 4"
+mkdir checkpoint4
+cp L*.fa checkpoint4/
+
 ###Align again
-for X in L*.fa; do /home/labgroup/programs/mafft-linux64/mafft.bat --thread $CORES --adjustdirectionaccurately --allowshift --unalignlevel 0.8 --leavegappyregion --maxiterate 0 --globalpair $X > gapA_$X\s; done
+for X in L*.fa; do /home/labgroup/programs/mafft-linux64/mafft.bat --thread $CORES --adjustdirectionaccurately --allowshift --unalignlevel 0.8 --leavegappyregion --maxiterate 1000 --globalpair $X > gapA_$X\s; done
 sed -i 's/>_R_/>/' gapA_L*.fas  ##Get rid of _R_ to start some fasta headers
 mkdir nextStepAlignments
 cp gapA_L*.fas nextStepAlignments/
 cd nextStepAlignments/
-FASconCAT-G_v1.04.pl -c -c -o -s
+FASconCAT-G_v1.04.pl -c -c -c -o -s  ##Collapse heterogeneity into a consensus using ambigious IUPAC codes. May want to explore for coalescent based analyses.
 
 
-cat FcC_gapA_L* > ALL_single_for_CM.fas
+cat FcC_gapA_L* > ALL_single_for_CM.fas ##file that can be used with counting_monster.pyt
 singleline.pl  ALL_single_for_CM.fas > sl_ALL_single_for_CM.fas
 sed -i 's/_consensus//' sl_ALL_single_for_CM.fas
-counting_monster.py sl_ALL_single_for_CM.fas \|
+counting_monster.py sl_ALL_single_for_CM.fas \|  ##counting monster makes a table (tableout.txt) that has which taxa are present in which loci with total numbers at end of columns and rows. Useful and quick data evaluation.
 sed -i "s/|/_/g" FcC_gapA_L*
 sed -i -r "s/_+comp.\+//" FcC_gapA_L*
 sed -i "s/^>L[0-9]\+_/>/" FcC_gapA_L*
@@ -133,9 +155,13 @@ ls 1l_FcC* > list.txt
 extract_probe_region.py list.txt $REFERENCE outdir ##This is where probe region is seperated from sequence fragments before and after the probe region. The head and tail regions are captured for many taxa during the target capture process.
 cd outdir
 rename .fas.trimmed .fas *.fas.trimmed
-rename 1l_FcC_gapA_L L 1l_FcC_gapA_L*
+rename FcC_gapA_L L FcC_gapA_L*
 
-mkdir ../../../probeRegionAlignments
-mv *.fas ../../../probeRegionAlignments/
+###Move Final probe region alignments to folder in starting directory
+mkdir ../../../../probeRegionAlignments_FINAL
+mv *.fas ../../../../probeRegionAlignments_FINAL/
+
+
 
 ###Alignments will be in probeRegionAlignments folder. If you want sequence regions before and after probe regions, you will need to make some modifications to concatenate them or not split them apart.
+
