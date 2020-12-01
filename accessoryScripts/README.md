@@ -1,0 +1,1 @@
+These scripts were developed by the people mentioned in each script. This overall pipeline is a modification of the pipeline from Breinholt et al. 2018 (DOI: 10.1093/sysbio/syx048) and these scripts are called by the post_IBA_assembly.sh script.
