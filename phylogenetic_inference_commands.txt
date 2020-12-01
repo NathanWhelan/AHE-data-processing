@@ -1,0 +1,20 @@
+##Phylogenetic inference commands
+
+##Single gene maximum likelihood inference for use with TreSpEx
+iqtree -s <inputAlignment.phy> -m MFP -bb 1000 -nt 4
+
+##Maximum Likelihood Inference with concatendated datasets
+iqtree -s <inputAlignment.phy> -spp <locusBoundaries.txt> -m MFP+MERGE -bb 1000 -rclusterf 20 -rcluster-max 1000 -nt 30 --runs 10
+
+##Single gene maximum likelihood inference for use with ASTRAL
+iqtree -s <inputAlignment.phy> -m MFP -bb 1000 -pers 0.2 -nstop 500 -nt 4 --runs 10
+
+##newick utilities command to collapse nodes with less than 10% BS on single gene trees for ASTRAL
+nw_ed <inputTree.tre> ‘i & b<=10’ o > <outputTree.tre>
+
+##ASTRAL command without taxon map
+java -jar astral.5.7.1.jar -i <singleGeneTrees.trees> -o <outputASTRAL.tre>
+
+##ASTRAL command with taxon map
+java -jar astral.5.7.1.jar -i <singleGeneTrees.trees> -o <outputASTRAL_taxonMap.tre> -a <taxonMap>
+
