@@ -1,5 +1,8 @@
 library(ggplot2)
-setwd("~/PleuroceridaePhylogenetics/threeRegions/Alicut/UncertainTrimmed/")
+setwd("~/PleuroceridaePhylogenetics/threeRegions/Alicut/UncertainTrimmed/")  #Set this as appropriate
+##This script is for plotting outputs from TreSpEx and BaCoCa. 
+##Do no uncritically use the cutoff values used in the below plots, as they're only relevant to the Whelan et al. pleurocerid AHE study.
+
 ##############################################
 ##############LB SCORES#######################
 ##############################################
